@@ -1,0 +1,249 @@
+#!/usr/bin/env python3
+"""
+Name: snake
+Author: Ragib Asif
+Date:   2026-02-24
+Version: 1.0.0
+
+Description:
+
+    A lightweight CLI utility that sanitizes file and directory names in the current working directory by replacing non-alphanumeric characters with underscores.
+
+    Snake renames files and directories so their names contain only alphanumeric characters and underscores:
+
+    - Every character that is not a-z, A-Z, or 0-9 is replaced with _
+    - Consecutive underscores are collapsed into one
+    - Leading and trailing underscores are removed
+    - If the resulting name is empty (e.g. the original name was all symbols), the file is renamed to a UTC timestamp
+
+    Hidden files and directories (names starting with .) are skipped.
+
+Requirements:
+
+    Python 3.13+
+
+Create script:
+
+    chmod +x snake.py
+    mv snake.py snake
+
+Copy:
+
+    cp snake /usr/local/bin/snake
+
+Move:
+
+    mv snake /usr/local/bin/snake
+
+Usage:
+
+    snake [-h] [-v] [-r] [-f FILE | -d DIR]
+
+    # Sanitize only the current directory (non-recursive)
+    snake
+
+    # Sanitize the current directory and all subdirectories
+    snake --recursive
+
+    # Enable verbose output
+    snake --verbose
+
+    # Recursive with verbose output
+    snake --verbose --recursive
+
+    # Operate on a single file or directory
+    snake --file my\ file\ (1).txt
+
+    # Operate on a specific directory (non-recursive)
+    snake --directory path/to/dir
+
+    # Operate on a specific directory recursively
+    snake --recursive --directory path/to/dir
+
+Options:
+
+    Flag	Long form	    Description
+    -h	    --help	        Show help message and exit
+    -v	    --verbose	    Enable DEBUG-level logging
+    -r	    --recursive	    Recurse into subdirectories (not usable with -f)
+    -f	    --file	        Operate on a single file or directory (mutually exclusive with -d, -r)
+    -d	    --directory	    Operate on a specific directory (mutually exclusive with -f)
+
+
+Examples:
+
+    my file (1).txt     ->  my_file_1.txt
+    __Hello, World!__   ->  Hello_World
+    résumé.pdf          ->  r_sum.pdf
+    2024-01-15_notes    ->  2024_01_15_notes
+    !!!.log             ->  20260224153000000000UTC.log
+
+
+Copyright (c) 2026 Ragib Asif
+All rights reserved.
+
+Licensed under the MIT License. See LICENSE file in the project root for details.
+"""
+
+import argparse
+import datetime
+import logging
+import re
+from pathlib import Path
+
+
+def setup_logging(level: str) -> None:
+    logging.basicConfig(
+        level=getattr(logging, level.upper(), logging.INFO),
+        format="[snake] %(asctime)s [%(levelname)s] - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+
+logger = logging.getLogger(__name__)
+
+
+def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments."""
+    parser = argparse.ArgumentParser(
+        description="Snake",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  snake
+  snake --verbose
+  snake --recursive
+  snake --verbose --recursive
+        """,
+    )
+
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Enable verbose (DEBUG) output",
+    )
+
+    parser.add_argument(
+        "-r",
+        "--recursive",
+        action="store_true",
+        help="Enable recursive editing (usable with -d, not with -f)",
+    )
+
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
+        "-f",
+        "--file",
+        metavar="FILE",
+        help="Operate on a single file or directory (mutually exclusive with -d, -r)",
+    )
+    group.add_argument(
+        "-d",
+        "--directory",
+        metavar="DIR",
+        help="Operate on a specific directory (mutually exclusive with -f)",
+    )
+
+    args = parser.parse_args()
+    if args.file and args.recursive:
+        parser.error("-r/--recursive cannot be used with -f/--file")
+    return args
+
+
+
+def clean(text: str) -> str:
+    """
+    Replaces non-ascii and white space characters with underscores.
+    Returns empty string if the result of replacement operations results
+    in only underscores.
+    """
+    res = re.sub(r"[^a-zA-Z0-9]", "_", text, flags=re.UNICODE)
+    res = re.sub(r"_+", "_", res)
+    res = res.strip("_")
+    return res
+
+
+def paths(dir: Path ) -> list[Path]:
+    """
+    Non-recursive
+    Get all the paths in the working directory except hidden files/dirs
+    """
+    buf: list[Path] = []
+    for item in Path(dir).glob("*"):
+        if not item.name.startswith("."):
+            buf.append(item)
+    return buf
+
+
+def fix(path: Path) -> None:
+    dt: str = datetime.datetime.now(tz=datetime.timezone.utc).strftime(
+        format="%Y%m%d%H%M%S%f%Z"
+    )
+    if path.is_dir():
+        name = clean(path.name)
+        ext = ""
+    else:
+        name = clean(path.stem)
+        ext = path.suffix
+    if len(name) == 0:
+        name = dt
+    new_path = path.parent / f"{name}{ext}"
+    if not new_path.exists():
+        path.rename(new_path)
+        logger.info(f"Renamed '{str(path)}' -> '{str(new_path)}'")
+    else:
+        logger.info(f"'{str(new_path)}' already exists")
+
+
+def non_recursive(path: Path) -> None:
+    buf = paths(path)
+    for item in buf:
+        fix(item)
+
+
+def recursive(path: Path) -> None:
+    buf: list[Path] = paths(path)
+    for item in buf:
+        if item.is_dir():
+            recursive(item)
+        fix(item)
+
+
+def main() -> None:
+    args = parse_args()
+
+    log_level = "DEBUG" if args.verbose else "INFO"
+    setup_logging(log_level)
+
+    logger.debug(f"Arguments: {args}")
+
+    cwd: Path = Path.cwd()
+
+    if args.file:
+        target = Path(args.file)
+        if not target.is_absolute():
+            target = cwd / target
+        if not target.exists():
+            logger.error(f"'{target}' not found")
+            return
+        fix(target)
+    elif args.directory:
+        target = Path(args.directory)
+        if not target.is_absolute():
+            target = cwd / target
+        if not target.exists() or not target.is_dir():
+            logger.error(f"'{target}' is not a valid directory")
+            return
+        if args.recursive:
+            recursive(target)
+        else:
+            non_recursive(target)
+    elif args.recursive:
+        recursive(cwd)
+    else:
+        non_recursive(cwd)
+
+
+if __name__ == "__main__":
+    main()
