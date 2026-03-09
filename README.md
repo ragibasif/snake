@@ -16,10 +16,63 @@ Python 3.13+
 
 ## Installation
 
+### Prerequisites
+
+Install Python 3.13+ for your platform before proceeding.
+
+**macOS (Homebrew)**
+```bash
+brew install python@3.13
+```
+
+**Ubuntu / Debian**
+```bash
+sudo apt update && sudo apt install -y python3.13
+```
+
+**Fedora**
+```bash
+sudo dnf install python3.13
+```
+
+**Arch Linux**
+```bash
+sudo pacman -S python
+```
+
+**openSUSE**
+```bash
+sudo zypper install python313
+```
+
+**Windows (winget)**
+```powershell
+winget install Python.Python.3.13
+```
+
+**Windows (Chocolatey)**
+```powershell
+choco install python --version=3.13
+```
+
+### Install snake
+
+**macOS / Linux**
 ```bash
 chmod +x snake.py
 mv snake.py snake
-cp snake /usr/local/bin/snake
+sudo cp snake /usr/local/bin/snake
+```
+
+**Windows (PowerShell — run as Administrator)**
+
+Place `snake.py` somewhere on your `PATH` (e.g. `C:\Tools`) and create a wrapper:
+```powershell
+New-Item -ItemType Directory -Force -Path "C:\Tools"
+Copy-Item snake.py C:\Tools\snake.py
+Set-Content C:\Tools\snake.cmd "@python C:\Tools\snake.py %*"
+# Add C:\Tools to PATH if not already present
+[Environment]::SetEnvironmentVariable("Path", $env:Path + ";C:\Tools", "Machine")
 ```
 
 ## Usage
