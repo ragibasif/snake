@@ -1,6 +1,6 @@
 # Snake
 
-A lightweight CLI utility that sanitizes file and directory names by replacing non-alphanumeric characters with underscores.
+Snake is a lightweight CLI utility that sanitizes file and directory names by replacing non-alphanumeric characters with underscores.
 
 ## How it works
 
@@ -24,7 +24,7 @@ cp snake /usr/local/bin/snake
 
 ## Usage
 
-```
+```bash
 snake [-h] [-v] [-r] [-f FILE | -d DIR]
 ```
 
@@ -73,4 +73,4 @@ snake --recursive --directory path/to/dir
 
 ## License
 
-Copyright (c) 2026 Ragib Asif. Licensed under the MIT License. See [LICENSE](LICENSE) for details.
+Licensed under the MIT License. See [LICENSE](LICENSE) for details.
